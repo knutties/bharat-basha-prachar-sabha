@@ -33,3 +33,7 @@ docker-compose.override.yml
 # Test artifacts
 coverage/
 *.profraw
+
+# Nix
+result
+.direnv/
