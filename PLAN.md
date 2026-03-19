@@ -122,14 +122,20 @@ A web + mobile platform — **Bharat Basha Prachar Sabha** — that provides:
 │  │          │  │  iOS/Android)│  │                           │  │
 │  └──────────┘  └──────────────┘  └───────────────────────────┘  │
 └─────────────────────┬───────────────────────────────────────────┘
-                      │
+                      │ Generated TypeScript SDK (from Smithy)
 ┌─────────────────────▼───────────────────────────────────────────┐
 │                     API Gateway (Kong / AWS API Gateway)        │
 │                     Rate Limiting, Auth, Routing                │
 └─────────────────────┬───────────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────────┐
-│                  Microservices Layer                             │
+│              Smithy IDL → Service Contracts                     │
+│     (Generates Rust server traits + TS client SDK + docs)       │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────────┐
+│          Rust Microservices (Axum + Tokio + Diesel)             │
+│          Each service: API Layer / Domain Layer / DB Layer      │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌─────────────┐  │
 │  │ User &     │ │ Curriculum │ │ Assessment │ │ Live Class  │  │
 │  │ Auth       │ │ Service    │ │ & Credits  │ │ Service     │  │
@@ -138,18 +144,18 @@ A web + mobile platform — **Bharat Basha Prachar Sabha** — that provides:
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌─────────────┐  │
 │  │ AI/ML      │ │ Content    │ │ Payment    │ │ Notification│  │
 │  │ Service    │ │ Management │ │ Service    │ │ Service     │  │
-│  │ (Speech,   │ │ Service    │ │ (Razorpay) │ │             │  │
-│  │  NLP, OCR) │ │ (CMS)     │ │            │ │             │  │
+│  │ (Python —  │ │ Service    │ │ (Razorpay) │ │             │  │
+│  │  FastAPI)  │ │            │ │            │ │             │  │
 │  └────────────┘ └────────────┘ └────────────┘ └─────────────┘  │
 └─────────────────────┬───────────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────────┐
 │                     Data Layer                                  │
-│  ┌──────────┐  ┌───────────┐  ┌─────────┐  ┌────────────────┐  │
-│  │PostgreSQL│  │ MongoDB   │  │ Redis   │  │ S3 / CloudFront│  │
-│  │(Users,   │  │ (Content, │  │ (Cache, │  │ (Media, Video, │  │
-│  │ Credits) │  │  Lessons) │  │  Session)│  │  Audio assets) │  │
-│  └──────────┘  └───────────┘  └─────────┘  └────────────────┘  │
+│  ┌───────────────────┐  ┌─────────┐  ┌────────────────────────┐ │
+│  │ PostgreSQL        │  │ Redis   │  │ S3 / CloudFront       │ │
+│  │ (All relational   │  │ (Cache, │  │ (Media, Video,        │ │
+│  │  data via Diesel) │  │  Session)│  │  Audio assets)        │ │
+│  └───────────────────┘  └─────────┘  └────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -159,11 +165,12 @@ A web + mobile platform — **Bharat Basha Prachar Sabha** — that provides:
 |-------|-----------|-----------|
 | **Frontend (Web)** | React + TypeScript + Tailwind CSS | Component-based, large ecosystem, responsive |
 | **Frontend (Mobile)** | React Native | Code sharing with web, cross-platform |
+| **API Definition** | Smithy IDL | Language-agnostic service modeling; generates Rust server stubs, client SDKs, and documentation from a single source of truth |
 | **API Gateway** | Kong / AWS API Gateway | Rate limiting, auth, API versioning |
-| **Backend Services** | Node.js (Express/Fastify) | Fast development, async I/O for real-time features |
-| **AI/ML Service** | Python (FastAPI) | Rich ML ecosystem (speech recognition, NLP) |
-| **Database (Relational)** | PostgreSQL | Users, credentials, credits, transactions |
-| **Database (Content)** | MongoDB | Flexible schema for multilingual lesson content |
+| **Backend Services** | Rust (Axum + Tokio) | Memory safety, high performance, fearless concurrency; ideal for a platform serving millions of students |
+| **ORM / Database Access** | Diesel (Rust) | Compile-time query validation, type-safe schema, PostgreSQL-native |
+| **AI/ML Service** | Python (FastAPI) | Rich ML ecosystem (speech recognition, NLP) — only service not in Rust |
+| **Database** | PostgreSQL | All relational data — users, content, credits, transactions; Diesel provides compile-time guarantees |
 | **Cache** | Redis | Session management, leaderboards, real-time data |
 | **Media Storage** | AWS S3 + CloudFront CDN | Video/audio content delivery across India |
 | **Live Classes** | WebRTC + Jitsi Meet (self-hosted) | Low-latency video; open source, no per-minute cost |
@@ -172,6 +179,106 @@ A web + mobile platform — **Bharat Basha Prachar Sabha** — that provides:
 | **CI/CD** | GitHub Actions + Docker + Kubernetes | Automated testing, containerized deployment |
 | **Monitoring** | Prometheus + Grafana + Sentry | Performance monitoring, error tracking |
 | **Payment** | Razorpay | India-focused payment gateway (UPI, cards, wallets) |
+
+### API Definition with Smithy IDL
+
+All service APIs are defined using [Smithy IDL](https://smithy.io/) — a language-agnostic interface definition language. Smithy models live in a central `smithy/` directory and serve as the **single source of truth** for all service contracts.
+
+**Why Smithy over OpenAPI:**
+- **Protocol-agnostic** — models describe the API shape, not HTTP specifics; supports REST, gRPC, or event-driven patterns
+- **Code generation** — generates Rust server scaffolding (via `smithy-rs`), TypeScript client SDKs, and documentation
+- **Rich constraint system** — validators, pagination traits, and error shapes are part of the model
+- **Composable** — services can reference shared shapes; ideal for a microservices architecture
+
+**Smithy workflow:**
+```
+smithy/ (models)
+  ├── common.smithy        # Shared shapes (UserId, LanguageCode, Pagination, etc.)
+  ├── auth.smithy           # Auth service operations
+  ├── curriculum.smithy     # Curriculum service operations
+  ├── assessment.smithy     # Assessment & credit operations
+  ├── live-class.smithy     # Live class operations
+  ├── content.smithy        # Content management operations
+  └── notification.smithy   # Notification operations
+
+    │  smithy build
+    ▼
+
+Generated outputs:
+  ├── Rust server traits + types (each service implements its trait)
+  ├── TypeScript client SDK (consumed by web/mobile frontends)
+  └── API documentation (HTML)
+```
+
+### Three-Layer Service Architecture (API / Domain / Database)
+
+Every Rust microservice follows a strict **three-layer architecture** to enforce separation of concerns:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   API Layer                          │
+│  • Axum route handlers                              │
+│  • Request deserialization & validation              │
+│  • Response serialization                           │
+│  • Implements Smithy-generated server traits         │
+│  • Auth middleware, rate limiting                    │
+│  • Maps domain results → HTTP responses / errors    │
+│  • NO business logic, NO direct DB access           │
+├─────────────────────────────────────────────────────┤
+│                 Domain Layer                         │
+│  • Pure business logic and rules                    │
+│  • Domain types (distinct from DB models & API DTOs)│
+│  • Service traits (e.g., CurriculumService)         │
+│  • Orchestrates use cases                           │
+│  • Calls repository traits (not Diesel directly)    │
+│  • Unit-testable with mock repositories             │
+│  • NO framework dependencies, NO HTTP awareness     │
+├─────────────────────────────────────────────────────┤
+│               Database Layer                        │
+│  • Diesel ORM models and schema                     │
+│  • Repository trait implementations                 │
+│  • Migrations (diesel_migrations)                   │
+│  • Query construction and execution                 │
+│  • Maps DB rows ↔ domain types                      │
+│  • NO business logic, NO HTTP awareness             │
+└─────────────────────────────────────────────────────┘
+```
+
+**Key principles:**
+- **Dependencies point inward** — API depends on Domain, Domain depends on Database (via traits); Database never depends on API
+- **Domain is framework-free** — the Domain layer has zero dependencies on Axum, Diesel, or any infrastructure; it defines repository traits that the Database layer implements
+- **Testability** — Domain logic is tested with mock repositories; API layer is tested with integration tests against real HTTP; Database layer is tested against a test PostgreSQL instance
+- **Smithy bridge** — the API layer receives Smithy-generated input types, converts them to domain types, calls domain services, and converts domain results back to Smithy output types
+
+**Example: Curriculum Service structure**
+```
+services/curriculum/
+├── Cargo.toml
+├── smithy/                    # Smithy model (or symlink to central)
+├── src/
+│   ├── main.rs                # Service entry point, Axum server setup
+│   ├── api/
+│   │   ├── mod.rs
+│   │   ├── handlers.rs        # Axum handlers implementing Smithy traits
+│   │   ├── middleware.rs       # Auth, logging, error mapping
+│   │   └── conversions.rs     # Smithy types ↔ Domain types
+│   ├── domain/
+│   │   ├── mod.rs
+│   │   ├── models.rs          # Curriculum, Module, Lesson domain types
+│   │   ├── services.rs        # CurriculumService with business rules
+│   │   ├── repository.rs      # Repository traits (CurriculumRepo, ModuleRepo)
+│   │   └── errors.rs          # Domain-specific error types
+│   └── db/
+│       ├── mod.rs
+│       ├── schema.rs          # Diesel schema (auto-generated)
+│       ├── models.rs          # Diesel Queryable/Insertable structs
+│       ├── repository.rs      # Implements domain::repository traits
+│       └── migrations/        # Diesel migrations
+└── tests/
+    ├── api_tests.rs           # HTTP integration tests
+    ├── domain_tests.rs        # Unit tests with mock repos
+    └── db_tests.rs            # DB tests against test PostgreSQL
+```
 
 ### AI/ML Components
 
