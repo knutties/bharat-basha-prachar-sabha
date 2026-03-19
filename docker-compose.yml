@@ -1,0 +1,164 @@
+version: "3.9"
+
+services:
+  # ─── Infrastructure ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bbps
+      POSTGRES_PASSWORD: bbps_dev_password
+      POSTGRES_DB: bbps
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bbps"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend Services ────────────────────────────────────────
+  auth-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rust-service
+      args:
+        SERVICE_NAME: auth-service
+    environment:
+      DATABASE_URL: postgres://bbps:bbps_dev_password@postgres:5432/bbps_auth
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: "8001"
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  curriculum-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rust-service
+      args:
+        SERVICE_NAME: curriculum-service
+    environment:
+      DATABASE_URL: postgres://bbps:bbps_dev_password@postgres:5432/bbps_curriculum
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: "8002"
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  assessment-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rust-service
+      args:
+        SERVICE_NAME: assessment-service
+    environment:
+      DATABASE_URL: postgres://bbps:bbps_dev_password@postgres:5432/bbps_assessment
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: "8003"
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  content-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rust-service
+      args:
+        SERVICE_NAME: content-service
+    environment:
+      DATABASE_URL: postgres://bbps:bbps_dev_password@postgres:5432/bbps_content
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: "8004"
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  live-class-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rust-service
+      args:
+        SERVICE_NAME: live-class-service
+    environment:
+      DATABASE_URL: postgres://bbps:bbps_dev_password@postgres:5432/bbps_live_class
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: "8005"
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rust-service
+      args:
+        SERVICE_NAME: notification-service
+    environment:
+      DATABASE_URL: postgres://bbps:bbps_dev_password@postgres:5432/bbps_notification
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PORT: "8006"
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8006:8006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.rust-service
+      args:
+        SERVICE_NAME: payment-service
+    environment:
+      DATABASE_URL: postgres://bbps:bbps_dev_password@postgres:5432/bbps_payment
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      RAZORPAY_KEY_ID: rzp_test_placeholder
+      RAZORPAY_KEY_SECRET: placeholder_secret
+      PORT: "8007"
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8007:8007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

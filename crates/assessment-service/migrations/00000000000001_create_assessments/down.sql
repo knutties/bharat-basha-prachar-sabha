@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS student_answers;
+DROP TABLE IF EXISTS questions;
+DROP TABLE IF EXISTS credits;
+DROP TABLE IF EXISTS assessments;

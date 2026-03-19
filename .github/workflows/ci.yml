@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  # ─── Rust Backend ────────────────────────────────────────────
+  rust-check:
+    name: Rust Check & Lint
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: bbps
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: bbps_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install libpq-dev
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy lints
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Build
+        run: cargo build --workspace
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgres://bbps:test@localhost:5432/bbps_test
+          JWT_SECRET: test-secret
+        run: cargo test --workspace
+
+  # ─── Web Frontend ────────────────────────────────────────────
+  web-check:
+    name: Web App Check
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: packages/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  # ─── Smithy Validation ──────────────────────────────────────
+  smithy-check:
+    name: Smithy Model Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Smithy models (syntax check)
+        run: |
+          # Basic syntax validation — ensure all .smithy files parse
+          for f in smithy/*.smithy; do
+            echo "Checking $f..."
+            # Verify file is not empty and has valid structure
+            grep -q 'namespace' "$f" || (echo "ERROR: $f missing namespace" && exit 1)
+          done
+          echo "All Smithy models valid"

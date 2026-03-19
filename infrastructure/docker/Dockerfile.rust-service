@@ -1,0 +1,41 @@
+# Multi-stage build for Rust microservices
+# Usage: docker build --build-arg SERVICE_NAME=auth-service -f Dockerfile.rust-service ../..
+
+ARG SERVICE_NAME
+
+# ─── Build stage ─────────────────────────────────────────────────
+FROM rust:1.77-slim-bookworm AS builder
+
+ARG SERVICE_NAME
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy workspace files
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+
+# Build the target service
+RUN cargo build --release -p ${SERVICE_NAME}
+
+# ─── Runtime stage ───────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+ARG SERVICE_NAME
+
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY --from=builder /app/target/release/${SERVICE_NAME} /app/service
+
+EXPOSE 8000
+
+CMD ["/app/service"]

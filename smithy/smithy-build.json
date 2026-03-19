@@ -1,0 +1,21 @@
+{
+    "version": "1.0",
+    "sources": ["smithy"],
+    "maven": {
+        "dependencies": [
+            "software.amazon.smithy:smithy-model:1.47.0",
+            "software.amazon.smithy:smithy-linters:1.47.0"
+        ]
+    },
+    "projections": {
+        "rust-server": {
+            "plugins": {}
+        },
+        "typescript-client": {
+            "plugins": {}
+        },
+        "docs": {
+            "plugins": {}
+        }
+    }
+}
