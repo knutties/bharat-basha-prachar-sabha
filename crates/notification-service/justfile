@@ -1,0 +1,78 @@
+# notification-service justfile
+
+set dotenv-load := true
+
+service_name := "notification-service"
+default_port := "8006"
+default_db := "bbps_notification"
+
+# Default: list recipes
+default:
+    @just --list
+
+# Build this service
+build:
+    cargo build -p {{service_name}}
+
+# Build in release mode
+build-release:
+    cargo build -p {{service_name}} --release
+
+# Run this service
+run:
+    cargo run -p {{service_name}}
+
+# Run with custom port
+run-port port:
+    PORT={{port}} cargo run -p {{service_name}}
+
+# Run all tests for this service
+test:
+    cargo test -p {{service_name}}
+
+# Run tests with output
+test-verbose:
+    cargo test -p {{service_name}} -- --nocapture
+
+# Run only unit tests (domain layer)
+test-unit:
+    cargo test -p {{service_name}} --lib
+
+# Run only integration tests
+test-integration:
+    cargo test -p {{service_name}} --test '*'
+
+# Check this service compiles
+check:
+    cargo check -p {{service_name}}
+
+# Lint this service
+lint:
+    cargo clippy -p {{service_name}} -- -D warnings
+
+# Run database migrations
+migrate:
+    cd {{justfile_directory()}} && diesel migration run
+
+# Rollback last migration
+migrate-rollback:
+    cd {{justfile_directory()}} && diesel migration revert
+
+# Redo last migration (rollback + run)
+migrate-redo:
+    cd {{justfile_directory()}} && diesel migration redo
+
+# Generate schema from database
+db-schema:
+    cd {{justfile_directory()}} && diesel print-schema > src/db/schema.rs
+
+# Create the service database
+db-create:
+    createdb -U bbps -h localhost {{default_db}} 2>/dev/null || echo "Database {{default_db}} already exists"
+
+# Drop the service database
+db-drop:
+    dropdb -U bbps -h localhost {{default_db}} 2>/dev/null || echo "Database {{default_db}} does not exist"
+
+# Reset database (drop + create + migrate)
+db-reset: db-drop db-create migrate

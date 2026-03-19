@@ -123,27 +123,70 @@ The API layer maps `DomainError` → HTTP status codes. The domain layer never k
 
 ## Development Commands
 
+This project uses [just](https://github.com/casey/just) as the command runner. Multi-level justfiles exist at the root and in each service/package directory.
+
+### Workspace-level (from repo root)
+
 ```bash
-# Build everything
-cargo build --workspace
+just                    # List all available recipes
+just build              # Build all Rust services
+just test               # Run all tests
+just fmt                # Format all Rust code
+just lint               # Clippy lints (warnings = errors)
+just check              # Fast compile check (no codegen)
+just precommit          # fmt-check + lint + check
+just ci                 # Full CI pipeline locally
 
-# Run all tests
-cargo test --workspace
+# Run/build/test a specific service by short name
+just run auth           # cargo run -p auth-service
+just test-service auth  # cargo test -p auth-service
+just build-service auth # cargo build -p auth-service
+just migrate auth       # diesel migration run for auth-service
 
-# Run a specific service
-cargo run -p auth-service
+just migrate-all        # Run migrations for ALL services
 
-# Format code
-cargo fmt --all
+# Web app
+just web-dev            # Start React dev server
+just web-build          # Production build
+just web-lint           # Lint frontend code
 
-# Lint
-cargo clippy --workspace -- -D warnings
+# AI/ML service
+just ai-dev             # Start FastAPI dev server
 
-# Run database migrations (per service)
-cd crates/auth-service && diesel migration run
+# Docker
+just infra-up           # Start PostgreSQL + Redis
+just infra-down         # Stop infrastructure
+just docker-up          # Build and start all services
+just docker-logs auth-service  # Tail logs for a service
 
-# Run web app
-cd packages/web && npm run dev
+# Smithy
+just smithy-validate    # Validate .smithy model files
+```
+
+### Service-level (from crates/<service>/)
+
+```bash
+just                    # List service-specific recipes
+just run                # Run this service
+just test               # Test this service
+just test-unit          # Domain layer unit tests only
+just test-integration   # Integration tests only
+just lint               # Clippy for this service
+just migrate            # Run database migrations
+just migrate-rollback   # Revert last migration
+just db-reset           # Drop + create + migrate
+just db-schema          # Regenerate Diesel schema from DB
+```
+
+### Web app (from packages/web/)
+
+```bash
+just install            # npm ci
+just dev                # Start dev server
+just build              # Production build
+just lint               # ESLint
+just typecheck          # TypeScript type check
+just ci                 # Full frontend CI
 ```
 
 ## Environment Variables
