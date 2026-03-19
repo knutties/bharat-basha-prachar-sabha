@@ -1,21 +1,12 @@
-mod api;
-mod db;
-mod domain;
-
 use anyhow::Result;
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::api::router::create_router;
-use crate::db::connection::establish_pool;
-use crate::db::repository::PgUserRepository;
-use crate::domain::services::AuthServiceImpl;
-
-/// Application state shared across all request handlers.
-pub struct AppState {
-    pub auth_service: AuthServiceImpl<PgUserRepository>,
-    pub jwt_secret: String,
-}
+use auth_service::api::router::create_router;
+use auth_service::db::connection::establish_pool;
+use auth_service::db::repository::PgUserRepository;
+use auth_service::domain::services::AuthServiceImpl;
+use auth_service::AppState;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -36,7 +27,7 @@ async fn main() -> Result<()> {
     let pool = establish_pool(&database_url)?;
 
     // Run migrations
-    db::connection::run_migrations(&pool)?;
+    auth_service::db::connection::run_migrations(&pool)?;
 
     // Build application state
     let user_repo = PgUserRepository::new(pool);

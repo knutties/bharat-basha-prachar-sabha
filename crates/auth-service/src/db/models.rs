@@ -35,6 +35,7 @@ pub struct NewUserRow<'a> {
 /// Diesel model for reading student profiles.
 #[derive(Queryable, Selectable, Debug)]
 #[diesel(table_name = student_profiles)]
+#[allow(dead_code)]
 pub struct StudentProfileRow {
     pub user_id: Uuid,
     pub grade: i16,
@@ -61,9 +62,10 @@ pub struct NewStudentProfileRow<'a> {
 /// Diesel model for reading teacher profiles.
 #[derive(Queryable, Selectable, Debug)]
 #[diesel(table_name = teacher_profiles)]
+#[allow(dead_code)]
 pub struct TeacherProfileRow {
     pub user_id: Uuid,
-    pub languages: Vec<String>,
+    pub languages: Vec<Option<String>>,
     pub qualifications: String,
     pub bio: Option<String>,
     pub verified: bool,
@@ -75,7 +77,7 @@ pub struct TeacherProfileRow {
 #[diesel(table_name = teacher_profiles)]
 pub struct NewTeacherProfileRow<'a> {
     pub user_id: Uuid,
-    pub languages: &'a [String],
+    pub languages: &'a [Option<String>],
     pub qualifications: &'a str,
     pub bio: Option<&'a str>,
     pub verified: bool,

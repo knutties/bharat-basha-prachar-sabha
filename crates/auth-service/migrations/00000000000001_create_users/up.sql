@@ -29,7 +29,7 @@ CREATE INDEX idx_student_profiles_state ON student_profiles(state_of_residence);
 
 CREATE TABLE teacher_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    languages VARCHAR(100)[] NOT NULL,
+    languages TEXT[] NOT NULL,
     qualifications TEXT NOT NULL,
     bio TEXT,
     verified BOOLEAN NOT NULL DEFAULT FALSE,

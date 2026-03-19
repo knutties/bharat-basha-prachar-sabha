@@ -140,9 +140,11 @@ impl UserRepository for PgUserRepository {
     ) -> Result<(), AuthError> {
         let mut conn = self.get_conn()?;
 
+        let languages: Vec<Option<String>> =
+            profile.languages.iter().map(|l| Some(l.clone())).collect();
         let new_row = NewTeacherProfileRow {
             user_id: profile.user_id,
-            languages: &profile.languages,
+            languages: &languages,
             qualifications: &profile.qualifications,
             bio: profile.bio.as_deref(),
             verified: profile.verified,
@@ -196,7 +198,7 @@ impl UserRepository for PgUserRepository {
 
         Ok(row.map(|r| TeacherProfile {
             user_id: r.user_id,
-            languages: r.languages,
+            languages: r.languages.into_iter().flatten().collect(),
             qualifications: r.qualifications,
             bio: r.bio,
             verified: r.verified,

@@ -1,5 +1,5 @@
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     http::StatusCode,
     middleware::Next,
     response::IntoResponse,
@@ -7,8 +7,10 @@ use axum::{
 };
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use super::handlers::{ErrorBody, ErrorResponse};
+use crate::AppState;
 
 /// JWT claims extracted from authorization header.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -20,13 +22,13 @@ pub struct Claims {
 }
 
 /// Middleware that validates JWT tokens from the Authorization header.
+/// Reads the JWT secret from AppState (not env vars) for testability.
 /// Injects `Claims` as a request extension for downstream handlers.
 pub async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
     mut request: Request,
     next: Next,
 ) -> impl IntoResponse {
-    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_default();
-
     let auth_header = request
         .headers()
         .get("Authorization")
@@ -51,7 +53,7 @@ pub async fn auth_middleware(
 
     match decode::<Claims>(
         token,
-        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
         &Validation::default(),
     ) {
         Ok(token_data) => {

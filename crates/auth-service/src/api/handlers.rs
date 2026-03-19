@@ -116,6 +116,13 @@ pub async fn register_student(
         }
     };
 
+    let board = req.board.map(|b| match b.to_uppercase().as_str() {
+        "CBSE" => shared::types::EducationBoard::Cbse,
+        "ICSE" => shared::types::EducationBoard::Icse,
+        "NIOS" => shared::types::EducationBoard::Nios,
+        other => shared::types::EducationBoard::StateBoard(other.to_string()),
+    });
+
     let input = RegisterStudentInput {
         name: req.name,
         email: req.email,
@@ -124,8 +131,8 @@ pub async fn register_student(
         grade,
         mother_tongue: req.mother_tongue,
         state_of_residence: req.state_of_residence,
-        board: None, // TODO: parse from req.board
-        school_id: None,
+        board,
+        school_id: req.school_id.map(shared::types::SchoolId),
         parent_email: req.parent_email,
     };
 
@@ -192,9 +199,10 @@ pub async fn login(
 
 pub async fn refresh_token(
     State(_state): State<Arc<AppState>>,
-    Json(_req): Json<RefreshTokenRequest>,
+    Json(req): Json<RefreshTokenRequest>,
 ) -> impl IntoResponse {
-    // TODO: Implement token refresh logic
+    // TODO: Validate refresh token and issue new pair
+    let _token = &req.refresh_token;
     (
         StatusCode::NOT_IMPLEMENTED,
         Json(MessageResponse {
@@ -229,12 +237,19 @@ pub async fn update_profile(
     Path(user_id): Path<Uuid>,
     Json(req): Json<UpdateProfileRequest>,
 ) -> impl IntoResponse {
+    let board = req.board.map(|b| match b.to_uppercase().as_str() {
+        "CBSE" => shared::types::EducationBoard::Cbse,
+        "ICSE" => shared::types::EducationBoard::Icse,
+        "NIOS" => shared::types::EducationBoard::Nios,
+        other => shared::types::EducationBoard::StateBoard(other.to_string()),
+    });
+
     let input = UpdateProfileInput {
         name: req.name,
         phone: req.phone,
         grade: req.grade.and_then(Grade::new),
         state_of_residence: req.state_of_residence,
-        board: None, // TODO: parse from req.board
+        board,
     };
 
     match state.auth_service.update_profile(user_id, input) {
